@@ -1,0 +1,542 @@
+uni='PATH_TO_UNI_NII'
+inv2='PATH_TO_INV2_NII'
+out_root='PATH_TO_OUT_FOLDER'
+
+
+
+%% MP2RAGE pre-processing Start-to-finish
+
+
+full_path_to_uni=fullfile(pwd,uni);
+full_path_to_inv2=fullfile(pwd,inv2);
+
+
+% begin MPRAGEise
+
+% ########################################################################
+% STEP - 0 : (optional) MPRAGEise UNI
+% ########################################################################
+
+disp(' ');
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp([datestr(datetime('now')), '        Start MPRAGEising']);
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp(' ');
+
+%% Check if SPM Directory exists on path
+if exist('spm') == 0
+    disp('++++ SPM directory not found in path.');
+    disp(' ');
+    spm_directory = uigetdir(pwd, 'Select directory with SPM 12');
+    addpath(spm_directory);
+    disp(['> ', spm_directory]);
+    disp(['> Added to path']);
+else
+    spm_directory = which('spm');
+    spm_directory = spm_directory(1:end - 6);
+    disp('++++ SPM directory exists in path.');
+    disp(['> ', spm_directory]);
+end
+
+%%
+
+% make outpath directory
+[inv2_file_path, inv2_file_prefix, inv2_file_ext] = fileparts(full_path_to_inv2);
+[uni_file_path, uni_file_prefix, uni_file_ext] = fileparts(full_path_to_uni);
+full_path_to_out = fullfile(out_root, 'presurf_MPRAGEise');
+mkdir(full_path_to_out);
+disp(' ');
+disp('++++ Output Directory Created.');
+disp(['> ', full_path_to_out]);
+
+if uni_file_ext == ".gz"
+    disp(' ');
+    disp('++++ Unzipping Input file');
+    disp(['> ', full_path_to_uni]);
+    gunzip(full_path_to_uni);
+    delete(full_path_to_uni);
+    full_path_to_uni=fullfile(uni_file_path,uni_file_prefix);
+    uni_file_name=uni_file_prefix;
+    [~, uni_file_prefix, ~] = fileparts(full_path_to_uni);
+    disp('++++ Unzipped Input file');
+    disp(['> ', full_path_to_uni]);
+else
+	disp('++++ Input UNI is unzipped');
+	uni_file_name=uni_file_prefix;
+    disp(['> ', full_path_to_uni]);
+end
+
+if inv2_file_ext == ".gz"
+    disp(' ');
+    disp('++++ Unzipping Input file');
+    disp(['> ', full_path_to_inv2]);
+    gunzip(full_path_to_inv2);
+    delete(full_path_to_inv2);
+    full_path_to_inv2=fullfile(inv2_file_path,inv2_file_prefix);
+    inv2_file_name=inv2_file_prefix;
+    [~, inv2_file_prefix, ~] = fileparts(full_path_to_inv2);
+    disp('++++ Unzipped Input file');
+    disp(['> ', full_path_to_inv2]);
+else
+	disp('++++ Input INV2 is unzipped');
+    inv2_file_name=inv2_file_prefix;
+    disp(['> ', full_path_to_inv2]);
+end
+
+
+%% Bias-correct INV2
+
+
+%presurf_biascorrect(full_path_to_inv2);
+
+% BEGIN biascorrect
+full_path_to_file = full_path_to_inv2
+
+disp(' ');
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp([datestr(datetime('now')),'        Starting SPM Bias-correction']);
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp(' ');
+
+
+% make outpath directory
+[in_file_path, in_file_prefix, in_file_ext] = fileparts(full_path_to_file);
+full_path_to_out_bc = fullfile(out_root, 'presurf_biascorrect');
+mkdir(full_path_to_out_bc);
+disp(' ');
+disp('++++ Output Directory Created.');
+disp(['> ', full_path_to_out_bc]);
+
+if in_file_ext == ".gz"
+    disp(' ');
+    disp('++++ Unzipping Input file');
+    disp(['> ', full_path_to_file]);
+    gunzip(full_path_to_file);
+    delete(full_path_to_file);
+    in_file_name=in_file_prefix;
+    disp('++++ Unzipped Input file');
+    full_path_to_file=fullfile(in_file_path,in_file_name);
+    [~, in_file_prefix, ~] = fileparts(full_path_to_file);
+    disp(['> ', full_path_to_file]);
+else
+	disp('++++ Input file is unzipped');
+	in_file_name=[in_file_prefix,'.nii'];
+    disp(['> ', full_path_to_file]);
+end
+
+%% Make copy
+copyfile(full_path_to_file, ...
+    fullfile(full_path_to_out_bc, in_file_name));
+
+%% Setup SPM Batch
+clear matlabbatch;
+
+matlabbatch{1}.spm.spatial.preproc.channel.vols = {[fullfile(full_path_to_out_bc,in_file_name),',1']};
+matlabbatch{1}.spm.spatial.preproc.channel.biasreg = 0.001;
+matlabbatch{1}.spm.spatial.preproc.channel.biasfwhm = 30;
+matlabbatch{1}.spm.spatial.preproc.channel.write = [1 1];
+matlabbatch{1}.spm.spatial.preproc.tissue(1).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',1']};
+matlabbatch{1}.spm.spatial.preproc.tissue(1).ngaus = 2;
+matlabbatch{1}.spm.spatial.preproc.tissue(1).native = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(1).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(2).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',2']};
+matlabbatch{1}.spm.spatial.preproc.tissue(2).ngaus = 2;
+matlabbatch{1}.spm.spatial.preproc.tissue(2).native = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(2).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(3).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',3']};
+matlabbatch{1}.spm.spatial.preproc.tissue(3).ngaus = 2;
+matlabbatch{1}.spm.spatial.preproc.tissue(3).native = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(3).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(4).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',4']};
+matlabbatch{1}.spm.spatial.preproc.tissue(4).ngaus = 3;
+matlabbatch{1}.spm.spatial.preproc.tissue(4).native = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(4).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(5).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',5']};
+matlabbatch{1}.spm.spatial.preproc.tissue(5).ngaus = 4;
+matlabbatch{1}.spm.spatial.preproc.tissue(5).native = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(5).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(6).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',6']};
+matlabbatch{1}.spm.spatial.preproc.tissue(6).ngaus = 2;
+matlabbatch{1}.spm.spatial.preproc.tissue(6).native = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(6).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.warp.mrf = 1;
+matlabbatch{1}.spm.spatial.preproc.warp.cleanup = 1;
+matlabbatch{1}.spm.spatial.preproc.warp.reg = [0 0.001 0.5 0.05 0.2];
+matlabbatch{1}.spm.spatial.preproc.warp.affreg = 'mni'; %'eastern'
+matlabbatch{1}.spm.spatial.preproc.warp.fwhm = 0;
+matlabbatch{1}.spm.spatial.preproc.warp.samp = 3;
+matlabbatch{1}.spm.spatial.preproc.warp.write = [0 0];
+matlabbatch{1}.spm.spatial.preproc.warp.vox = NaN;
+matlabbatch{1}.spm.spatial.preproc.warp.bb = [NaN NaN NaN
+                                              NaN NaN NaN];
+%% Start SPM Job
+disp(' ');
+disp('++++ Starting Bias-correction');
+spm('defaults', 'FMRI');
+spm_jobman('run', matlabbatch);
+save(fullfile(full_path_to_out_bc,[in_file_prefix,'_presurfBiasCorrBatch.mat']),'matlabbatch');
+
+%% Rename output file
+% Remove mat file
+delete(fullfile(full_path_to_out_bc,[in_file_prefix,'_seg8.mat']));
+
+% Bias corrected file
+copyfile(fullfile(full_path_to_out_bc,['m',in_file_name]), fullfile(full_path_to_out_bc,[in_file_prefix,'_biascorrected.nii']));
+delete(fullfile(full_path_to_out_bc,['m',in_file_name]));
+
+% Bias field file
+copyfile(fullfile(full_path_to_out_bc,['BiasField_',in_file_name]), fullfile(full_path_to_out,[in_file_prefix,'_biasfield.nii']));
+delete(fullfile(full_path_to_out_bc,['BiasField_',in_file_name]));
+
+%% Fin
+disp(' ');
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp([datestr(datetime('now')),'        Completed SPM Bias-correction']);
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp(' ');
+
+
+% END biascorrect
+
+
+full_path_to_inv2_mpr=fullfile(out_root,'presurf_biascorrect',[inv2_file_prefix,'_biascorrected.nii']);
+
+%% Start MPRAGEising
+uni_nii=spm_vol(full_path_to_uni);
+uni_img = spm_read_vols(uni_nii);
+
+inv2_img = spm_read_vols(spm_vol(full_path_to_inv2_mpr));
+
+%inv2_img_norm = mat2gray(inv2_img);
+%manually normalize
+inv2_img_norm = (inv2_img - min(inv2_img(:))) ./ (max(inv2_img(:))-min(inv2_img(:)));
+
+uni_img_clean = uni_img.*inv2_img_norm;
+
+uni_nii.fname=fullfile(full_path_to_out,[uni_file_prefix,'_MPRAGEised.nii']);
+spm_write_vol(uni_nii,uni_img_clean);
+
+full_path_to_output = uni_nii.fname;
+
+% Clean Up
+rmdir(fullfile(out_root,'presurf_biascorrect'),'s');
+
+
+%% Fin
+disp(' ');
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp([datestr(datetime('now')), '        Completed MPRAGEising']);
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp(' ');
+
+UNI_out = full_path_to_output
+
+% end MPRAGEise
+
+% begin presurf_INV2
+
+full_path_to_file = full_path_to_inv2
+
+disp(' ');
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp([datestr(datetime('now')), '        Start Pre-processing INV2']);
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp(' ');
+
+
+%% 
+
+% make outpath directory
+[in_file_path, in_file_prefix, in_file_ext] = fileparts(full_path_to_file);
+full_path_to_out = fullfile(out_root, 'presurf_INV2');
+mkdir(full_path_to_out);
+disp(' ');
+disp('++++ Output Directory Created.');
+disp(['> ', full_path_to_out]);
+
+if in_file_ext == ".gz"
+    disp(' ');
+    disp('++++ Unzipping Input file');
+    disp(['> ', full_path_to_file]);
+    gunzip(full_path_to_file);
+    delete(full_path_to_file);
+    in_file_name=in_file_prefix;
+    disp('++++ Unzipped Input file');
+    full_path_to_file=fullfile(in_file_path,in_file_name);
+    [~, in_file_prefix, ~] = fileparts(full_path_to_file);
+    disp(['> ', full_path_to_file]);
+else
+    disp('++++ Input file is unzipped');
+    in_file_name=[in_file_prefix,'.nii'];
+    disp(['> ', full_path_to_file]);
+end
+
+%% Make copy
+copyfile(full_path_to_file, ...
+    fullfile(full_path_to_out, in_file_name));
+
+%% Setup SPM Batch
+clear matlabbatch;
+matlabbatch{1}.spm.spatial.preproc.channel.vols = {[fullfile(full_path_to_out,in_file_name),',1']};
+matlabbatch{1}.spm.spatial.preproc.channel.biasreg = 0.001;
+matlabbatch{1}.spm.spatial.preproc.channel.biasfwhm = 30;
+matlabbatch{1}.spm.spatial.preproc.channel.write = [1 1];
+matlabbatch{1}.spm.spatial.preproc.tissue(1).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',1']};
+matlabbatch{1}.spm.spatial.preproc.tissue(1).ngaus = 2;
+matlabbatch{1}.spm.spatial.preproc.tissue(1).native = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(1).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(2).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',2']};
+matlabbatch{1}.spm.spatial.preproc.tissue(2).ngaus = 2;
+matlabbatch{1}.spm.spatial.preproc.tissue(2).native = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(2).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(3).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',3']};
+matlabbatch{1}.spm.spatial.preproc.tissue(3).ngaus = 2;
+matlabbatch{1}.spm.spatial.preproc.tissue(3).native = [1 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(3).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(4).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',4']};
+matlabbatch{1}.spm.spatial.preproc.tissue(4).ngaus = 3;
+matlabbatch{1}.spm.spatial.preproc.tissue(4).native = [1 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(4).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(5).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',5']};
+matlabbatch{1}.spm.spatial.preproc.tissue(5).ngaus = 4;
+matlabbatch{1}.spm.spatial.preproc.tissue(5).native = [1 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(5).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(6).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',6']};
+matlabbatch{1}.spm.spatial.preproc.tissue(6).ngaus = 2;
+matlabbatch{1}.spm.spatial.preproc.tissue(6).native = [1 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(6).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.warp.mrf = 1;
+matlabbatch{1}.spm.spatial.preproc.warp.cleanup = 1;
+matlabbatch{1}.spm.spatial.preproc.warp.reg = [0 0.001 0.5 0.05 0.2];
+matlabbatch{1}.spm.spatial.preproc.warp.affreg = 'mni'; %'eastern'
+matlabbatch{1}.spm.spatial.preproc.warp.fwhm = 0;
+matlabbatch{1}.spm.spatial.preproc.warp.samp = 2;
+matlabbatch{1}.spm.spatial.preproc.warp.write = [0 0];
+matlabbatch{1}.spm.spatial.preproc.warp.vox = NaN;
+matlabbatch{1}.spm.spatial.preproc.warp.bb = [NaN NaN NaN
+    NaN NaN NaN];
+%% Start SPM Job
+disp(' ');
+disp('++++ Starting Unified Segmentation');
+spm('defaults', 'FMRI');
+spm_jobman('run', matlabbatch);
+
+%% Clean up output files
+% Remove mat file
+delete(fullfile(full_path_to_out,[in_file_prefix,'_seg8.mat']));
+save(fullfile(full_path_to_out,[in_file_prefix,'_presurfSegBatch.mat']),'matlabbatch');
+
+% Bias corrected file
+copyfile(fullfile(full_path_to_out,['m',in_file_name]), fullfile(full_path_to_out,[in_file_prefix,'_biascorrected.nii']));
+delete(fullfile(full_path_to_out,['m',in_file_name]));
+
+% Bias field file
+copyfile(fullfile(full_path_to_out,['BiasField_',in_file_name]), fullfile(full_path_to_out,[in_file_prefix,'_biasfield.nii']));
+delete(fullfile(full_path_to_out,['BiasField_',in_file_name]));
+
+% Rename C3
+copyfile(fullfile(full_path_to_out,['c3',in_file_name]), fullfile(full_path_to_out,[in_file_prefix,'_class3.nii']));
+delete(fullfile(full_path_to_out,['c3',in_file_name]));
+% Rename C4
+copyfile(fullfile(full_path_to_out,['c4',in_file_name]), fullfile(full_path_to_out,[in_file_prefix,'_class4.nii']));
+delete(fullfile(full_path_to_out,['c4',in_file_name]));
+% Rename C5
+copyfile(fullfile(full_path_to_out,['c5',in_file_name]), fullfile(full_path_to_out,[in_file_prefix,'_class5.nii']));
+delete(fullfile(full_path_to_out,['c5',in_file_name]));
+% Rename C6
+copyfile(fullfile(full_path_to_out,['c6',in_file_name]), fullfile(full_path_to_out,[in_file_prefix,'_class6.nii']));
+delete(fullfile(full_path_to_out,['c6',in_file_name]));
+
+%% Combine masks
+clear matlabbatch;
+matlabbatch{1}.spm.util.imcalc.input = {
+    fullfile(full_path_to_out,[in_file_prefix,'_class3.nii'])
+    fullfile(full_path_to_out,[in_file_prefix,'_class4.nii'])
+    fullfile(full_path_to_out,[in_file_prefix,'_class5.nii'])
+    fullfile(full_path_to_out,[in_file_prefix,'_class6.nii'])
+    };
+matlabbatch{1}.spm.util.imcalc.output = fullfile(full_path_to_out,[in_file_prefix,'_stripmask.nii']);
+matlabbatch{1}.spm.util.imcalc.outdir = {''};
+matlabbatch{1}.spm.util.imcalc.expression = '1-((i1+i2+i3+i4)>0.5)';
+matlabbatch{1}.spm.util.imcalc.var = struct('name', {}, 'value', {});
+matlabbatch{1}.spm.util.imcalc.options.dmtx = 0;
+matlabbatch{1}.spm.util.imcalc.options.mask = 0;
+matlabbatch{1}.spm.util.imcalc.options.interp = -7;
+matlabbatch{1}.spm.util.imcalc.options.dtype = 2;
+%% Start SPM Job
+disp(' ');
+disp('++++ Preparing Stripmask');
+spm('defaults', 'FMRI');
+spm_jobman('run', matlabbatch);
+save(fullfile(full_path_to_out,[in_file_prefix,'_presurfStripBatch.mat']),'matlabbatch');
+%% Fin
+disp(' ');
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp([datestr(datetime('now')), '        Completed Pre-processing INV2']);
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp(' ');
+
+% end presurf_INV2
+
+
+% begin presurf_UNI(UNI_out)
+full_path_to_file = UNI_out
+
+disp(' ');
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp([datestr(datetime('now')),'        Start Pre-processing UNI']);
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp(' ');
+
+
+%% 
+
+% make outpath directory
+[in_file_path, in_file_prefix, in_file_ext] = fileparts(full_path_to_file);
+full_path_to_out = fullfile(out_root, 'presurf_UNI');
+mkdir(full_path_to_out);
+disp(' ');
+disp('++++ Output Directory Created.');
+disp(['> ', full_path_to_out]);
+
+if in_file_ext == ".gz"
+    disp(' ');
+    disp('++++ Unzipping Input file');
+    disp(['> ', full_path_to_file]);
+    gunzip(full_path_to_file);
+    delete(full_path_to_file);
+    in_file_name=in_file_prefix;
+    disp('++++ Unzipped Input file');
+    full_path_to_file=fullfile(in_file_path,in_file_name);
+    [~, in_file_prefix, ~] = fileparts(full_path_to_file);
+    disp(['> ', full_path_to_file]);
+else
+    disp('++++ Input file is unzipped');
+    in_file_name=[in_file_prefix,'.nii'];
+    disp(['> ', full_path_to_file]);
+end
+
+%% Make copy
+copyfile(full_path_to_file, ...
+    fullfile(full_path_to_out, in_file_name));
+
+%% Setup SPM Batch
+clear matlabbatch;
+matlabbatch{1}.spm.spatial.preproc.channel.vols = {[fullfile(full_path_to_out,in_file_name),',1']};
+matlabbatch{1}.spm.spatial.preproc.channel.biasreg = 0.001;
+matlabbatch{1}.spm.spatial.preproc.channel.biasfwhm = 30;
+matlabbatch{1}.spm.spatial.preproc.channel.write = [1 1];
+matlabbatch{1}.spm.spatial.preproc.tissue(1).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',1']};
+matlabbatch{1}.spm.spatial.preproc.tissue(1).ngaus = 2;
+matlabbatch{1}.spm.spatial.preproc.tissue(1).native = [1 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(1).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(2).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',2']};
+matlabbatch{1}.spm.spatial.preproc.tissue(2).ngaus = 2;
+matlabbatch{1}.spm.spatial.preproc.tissue(2).native = [1 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(2).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(3).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',3']};
+matlabbatch{1}.spm.spatial.preproc.tissue(3).ngaus = 2;
+matlabbatch{1}.spm.spatial.preproc.tissue(3).native = [1 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(3).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(4).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',4']};
+matlabbatch{1}.spm.spatial.preproc.tissue(4).ngaus = 3;
+matlabbatch{1}.spm.spatial.preproc.tissue(4).native = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(4).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(5).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',5']};
+matlabbatch{1}.spm.spatial.preproc.tissue(5).ngaus = 4;
+matlabbatch{1}.spm.spatial.preproc.tissue(5).native = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(5).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(6).tpm = {[fullfile(spm_directory, 'tpm','TPM.nii'),',6']};
+matlabbatch{1}.spm.spatial.preproc.tissue(6).ngaus = 2;
+matlabbatch{1}.spm.spatial.preproc.tissue(6).native = [0 0];
+matlabbatch{1}.spm.spatial.preproc.tissue(6).warped = [0 0];
+matlabbatch{1}.spm.spatial.preproc.warp.mrf = 1;
+matlabbatch{1}.spm.spatial.preproc.warp.cleanup = 1;
+matlabbatch{1}.spm.spatial.preproc.warp.reg = [0 0.001 0.5 0.05 0.2];
+matlabbatch{1}.spm.spatial.preproc.warp.affreg = 'mni'; %'eastern'
+matlabbatch{1}.spm.spatial.preproc.warp.fwhm = 0;
+matlabbatch{1}.spm.spatial.preproc.warp.samp = 2;
+matlabbatch{1}.spm.spatial.preproc.warp.write = [0 0];
+matlabbatch{1}.spm.spatial.preproc.warp.vox = NaN;
+matlabbatch{1}.spm.spatial.preproc.warp.bb = [NaN NaN NaN
+    NaN NaN NaN];
+%% Start SPM Job
+disp(' ');
+disp('++++ Starting Unified Segmentation');
+spm('defaults', 'FMRI');
+spm_jobman('run', matlabbatch);
+
+%% Rename output file
+% Remove mat file
+delete(fullfile(full_path_to_out,[in_file_prefix,'_seg8.mat']));
+save(fullfile(full_path_to_out,[in_file_prefix,'_presurfSegBatch.mat']),'matlabbatch');
+
+% Bias corrected file
+copyfile(fullfile(full_path_to_out,['m',in_file_name]), fullfile(full_path_to_out,[in_file_prefix,'_biascorrected.nii']));
+delete(fullfile(full_path_to_out,['m',in_file_name]));
+
+% Bias field file
+copyfile(fullfile(full_path_to_out,['BiasField_',in_file_name]), fullfile(full_path_to_out,[in_file_prefix,'_biasfield.nii']));
+delete(fullfile(full_path_to_out,['BiasField_',in_file_name]));
+
+% Rename C3
+copyfile(fullfile(full_path_to_out,['c1',in_file_name]), fullfile(full_path_to_out,[in_file_prefix,'_class1.nii']));
+delete(fullfile(full_path_to_out,['c1',in_file_name]));
+% Rename C4
+copyfile(fullfile(full_path_to_out,['c2',in_file_name]), fullfile(full_path_to_out,[in_file_prefix,'_class2.nii']));
+delete(fullfile(full_path_to_out,['c2',in_file_name]));
+% Rename C5
+copyfile(fullfile(full_path_to_out,['c3',in_file_name]), fullfile(full_path_to_out,[in_file_prefix,'_class3.nii']));
+delete(fullfile(full_path_to_out,['c3',in_file_name]));
+
+%% Combine masks
+clear matlabbatch;
+matlabbatch{1}.spm.util.imcalc.input = {
+    fullfile(full_path_to_out,[in_file_prefix,'_class1.nii'])
+    fullfile(full_path_to_out,[in_file_prefix,'_class2.nii'])
+    fullfile(full_path_to_out,[in_file_prefix,'_class3.nii'])
+    };
+matlabbatch{1}.spm.util.imcalc.output = fullfile(full_path_to_out,[in_file_prefix,'_brainmask.nii']);
+matlabbatch{1}.spm.util.imcalc.outdir = {''};
+matlabbatch{1}.spm.util.imcalc.expression = '(i1+i2+i3)>0.3'; % more liberal than typically required
+matlabbatch{1}.spm.util.imcalc.var = struct('name', {}, 'value', {});
+matlabbatch{1}.spm.util.imcalc.options.dmtx = 0;
+matlabbatch{1}.spm.util.imcalc.options.mask = 0;
+matlabbatch{1}.spm.util.imcalc.options.interp = -7;
+matlabbatch{1}.spm.util.imcalc.options.dtype = 2;
+%% Start SPM Job
+disp(' ');
+disp('++++ Preparing Brainmask');
+spm('defaults', 'FMRI');
+spm_jobman('run', matlabbatch);
+save(fullfile(full_path_to_out,[in_file_prefix,'_presurfStripBatch.mat']),'matlabbatch');
+%% Output WM Mask
+clear matlabbatch;
+matlabbatch{1}.spm.util.imcalc.input = {
+    fullfile(full_path_to_out,[in_file_prefix,'_class2.nii'])
+    };
+matlabbatch{1}.spm.util.imcalc.output = fullfile(full_path_to_out,[in_file_prefix,'_WMmask.nii']);
+matlabbatch{1}.spm.util.imcalc.outdir = {''};
+matlabbatch{1}.spm.util.imcalc.expression = '(i1)>0.5';
+matlabbatch{1}.spm.util.imcalc.var = struct('name', {}, 'value', {});
+matlabbatch{1}.spm.util.imcalc.options.dmtx = 0;
+matlabbatch{1}.spm.util.imcalc.options.mask = 0;
+matlabbatch{1}.spm.util.imcalc.options.interp = -7;
+matlabbatch{1}.spm.util.imcalc.options.dtype = 2;
+
+%% Start SPM Job
+disp(' ');
+disp('++++ Preparing WMmask');
+spm('defaults', 'FMRI');
+spm_jobman('run', matlabbatch);
+save(fullfile(full_path_to_out,[in_file_prefix,'_presurfWMBatch.mat']),'matlabbatch');
+
+%% Fin
+disp(' ');
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp([datestr(datetime('now')),'        Completed Pre-processing UNI']);
+disp('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+disp(' ');
+
+% end presurf_UNI
+
