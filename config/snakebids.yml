@@ -87,14 +87,7 @@ parse_args:
     default: False
     nargs: '+'
 
- # custom command-line parameters can then be added, these will get added to the config
- # below is an example to override config['bet_frac']
-  --smoothing_fwhm:
-      nargs: '+'
-      required: True
 
-
-#--- workflow specific configuration -- below is just an example:
 
 
 #singularity containers
