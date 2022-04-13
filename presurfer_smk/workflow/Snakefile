@@ -21,7 +21,7 @@ config.update( snakebids.generate_inputs(
 
 rule all:
     input:
-        out_presurfer = expand(bids(root=root,suffix='presurfer',**config['input_wildcards']['uni']),
+        uni_stripped = expand(bids(root=root,suffix='stripped.nii.gz',**config['input_wildcards']['uni']),
                             zip,**config['input_zip_lists']['uni'])
 
 
@@ -68,4 +68,40 @@ rule presurfer:
     container: 'docker://ghcr.io/spm/spm-docker:docker-matlab'
     shell:
         "/.run script {input.presurfer_script}"
+
+
+rule copy_outputs:
+    input:
+        uni_mprageised = bids(root=rules.presurfer.output.out_presurfer,include_subject_dir=False,include_session_dir=False,
+                            datatype='presurf_MPRAGEise',
+                            suffix='UNI_MPRAGEised.nii',
+                            **config['input_wildcards']['uni']),
+        inv2_stripmask = bids(root=rules.presurfer.output.out_presurfer,include_subject_dir=False,include_session_dir=False,
+                            datatype='presurf_INV2',
+                            suffix='INV2_stripmask.nii',
+                            **config['input_wildcards']['uni']),
+        uni_brainmask = bids(root=rules.presurfer.output.out_presurfer,include_subject_dir=False,include_session_dir=False,
+                            datatype='presurf_UNI',
+                            suffix='UNI_MPRAGEised_brainmask.nii',
+                            **config['input_wildcards']['uni'])
+    output:
+        uni_mprageised = bids(root=root,suffix='MPRAGEised.nii.gz',**config['input_wildcards']['uni']),
+        inv2_stripmask = bids(root=root,suffix='stripmask.nii.gz',**config['input_wildcards']['uni']),
+        uni_brainmask = bids(root=root,suffix='brainmask.nii.gz',**config['input_wildcards']['uni']),
+    run: 
+        for i,o in zip(input,output):
+            shell('cp {i} {o}')
+        
+
+rule apply_strip:
+    """ should manually edit the stripmask if needed """
+    input:
+        uni_mprageised = bids(root=root,suffix='MPRAGEised.nii.gz',**config['input_wildcards']['uni']),
+        inv2_stripmask = bids(root=root,suffix='stripmask.nii.gz',**config['input_wildcards']['uni']),
+    output:
+        uni_stripped = bids(root=root,suffix='stripped.nii.gz',**config['input_wildcards']['uni']),
+    shell:
+        'c3d {input} -multiply {output}'
+
+
 
