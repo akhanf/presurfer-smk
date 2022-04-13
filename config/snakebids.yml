@@ -25,7 +25,7 @@ pybids_inputs:
   uni:
     filters:
       suffix: 'MP2RAGE'
-      extension: '.nii'
+      extension: '.nii.gz'
       datatype: 'anat'
       acquisition: 'UNI'
     wildcards:
@@ -35,7 +35,7 @@ pybids_inputs:
   inv2:
     filters:
       suffix: 'MP2RAGE'
-      extension: '.nii'
+      extension: '.nii.gz'
       datatype: 'anat'
       inv: '2'
     wildcards:
