@@ -1,0 +1,56 @@
+import snakebids
+from snakebids import bids
+import tempfile
+
+configfile: workflow.source_path('../config/snakebids.yml')
+
+#set-up work(tmp) and out root dir
+work = os.environ.get(config.get('tmpdir', ""), tempfile.gettempdir())  + '/presurfer'
+root = Path(config['root'])/'presurfer'
+
+#writes inputs_config.yml and updates config dict
+config.update( snakebids.generate_inputs(
+        bids_dir=config["bids_dir"],
+        pybids_inputs=config["pybids_inputs"],
+        derivatives=config["derivatives"],
+        participant_label=config.get("participant_label"),
+        exclude_participant_label=config.get("exclude_participant_label")
+))
+
+
+
+rule all:
+    input:
+        out_presurfer = expand(bids(root=root,suffix='presurfer',**config['input_wildcards']['uni']),
+                            zip,**config['input_zip_lists']['uni'])
+
+
+rule render_matlab_script:
+    """ this rule creates the matlab script from the template """
+    input: 
+        uni = config['input_path']['uni'],
+        inv2 = config['input_path']['inv2'],
+        template_script = os.path.join(workflow.basedir,'script_templates','presurfer_spmdocker.m.template')
+    params:
+        out_presurfer = bids(root=root,suffix='presurfer',**config['input_wildcards']['uni'])
+    output:
+        presurfer_script = temp(bids(root=root,suffix='presurfer.m',**config['input_wildcards']['uni']))
+    run:
+        from jinja2 import Environment, FileSystemLoader
+        (head,tail) = os.path.split(input.template_script)
+        env = Environment(loader=FileSystemLoader(head))
+        template = env.get_template(tail)
+        with open(output.presurfer_script,'w') as fh:
+        	fh.write(template.render(uni_path=input.uni, inv2_path=input.inv2, out_folder=params.out_presurfer))
+
+rule presurfer:
+    input: 
+        uni = config['input_path']['uni'],
+        inv2 = config['input_path']['inv2'],
+        presurfer_script = bids(root=root,suffix='presurfer.m',**config['input_wildcards']['uni'])
+    output:
+        out_presurfer = directory(bids(root=root,suffix='presurfer',**config['input_wildcards']['uni']))
+    container: 'docker://ghcr.io/spm/spm-docker:docker-matlab'
+    shell:
+        "/.run script {input.presurfer_script}"
+

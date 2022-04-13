@@ -1,6 +1,6 @@
-uni='PATH_TO_UNI_NII'
-inv2='PATH_TO_INV2_NII'
-out_root='PATH_TO_OUT_FOLDER'
+uni='{{uni_path}}'
+inv2='{{inv2_path}}'
+out_root='{{out_folder}}'
 
 
 
