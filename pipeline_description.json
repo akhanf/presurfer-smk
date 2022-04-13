@@ -1,0 +1,23 @@
+{
+    "Name": "presurfer_smk - Presurfer snakebids app",
+    "BIDSVersion": "1.4.0",
+    "DatasetType": "derivative",
+    "PipelineDescription":
+        {
+            "Name": "presurfer_smk",
+            "Version": "0.1.0",
+            "CodeURL": "http://github.com/akhanf/presurfer_smk",
+            "Author": "Ali Khan",
+            "AuthorEmail": "ali.khan@uwo.ca"
+        },
+    "GeneratedBy": [
+        {
+            "Name": "presurfer_smk",
+            "Version": "0.1.0",
+            "CodeURL": "http://github.com/akhanf/presurfer_smk",
+            "Author": "Ali Khan",
+            "AuthorEmail": "ali.khan@uwo.ca"
+ 
+        }
+    ]
+}
