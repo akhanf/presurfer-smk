@@ -1,14 +1,14 @@
-uni='PATH_TO_UNI_NII'
-inv2='PATH_TO_INV2_NII'
-out_root='PATH_TO_OUT_FOLDER'
+uni='{{uni_path}}'
+inv2='{{inv2_path}}'
+out_root='{{out_folder}}'
 
 
 
 %% MP2RAGE pre-processing Start-to-finish
 
 
-full_path_to_uni=fullfile(pwd,uni);
-full_path_to_inv2=fullfile(pwd,inv2);
+full_path_to_uni=fullfile(uni);
+full_path_to_inv2=fullfile(inv2);
 
 
 % begin MPRAGEise
