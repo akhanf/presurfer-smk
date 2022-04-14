@@ -1,4 +1,4 @@
-bids_dir: 'bids'
+bids_dir: 'test_data/bids'
 output_dir: 'test_out'
 
 #enable printing debug statements during parsing -- disable if generating dag visualization
@@ -92,7 +92,7 @@ parse_args:
 
 #singularity containers
 singularity:
-    fsl: 'docker://brainlife/fsl/6.0.0'
+    spm: 'docker://ghcr.io/spm/spm-docker:docker-matlab'
 
 
 root: 'results'
