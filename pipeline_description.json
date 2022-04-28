@@ -4,18 +4,18 @@
     "DatasetType": "derivative",
     "PipelineDescription":
         {
-            "Name": "presurfer_smk",
+            "Name": "presurfer",
             "Version": "0.1.0",
             "CodeURL": "http://github.com/akhanf/presurfer_smk",
-            "Author": "Ali Khan",
+            "Author": "Wrapper by Ali Khan (presurfer by Sriranga Kashyap)",
             "AuthorEmail": "ali.khan@uwo.ca"
         },
     "GeneratedBy": [
         {
-            "Name": "presurfer_smk",
+            "Name": "presurfer",
             "Version": "0.1.0",
             "CodeURL": "http://github.com/akhanf/presurfer_smk",
-            "Author": "Ali Khan",
+            "Author": "Wrapper by Ali Khan (presurfer by Sriranga Kashyap)",
             "AuthorEmail": "ali.khan@uwo.ca"
  
         }

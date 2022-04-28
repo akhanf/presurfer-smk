@@ -1,0 +1,193 @@
+import snakebids
+from snakebids import bids
+import tempfile
+
+
+configfile: workflow.source_path("../config/snakebids.yml")
+
+
+# set-up work(tmp) and out root dir
+work = os.environ.get(config.get("tmpdir", ""), tempfile.gettempdir()) + "/presurfer"
+root = Path(config["root"]) / "presurfer"
+
+
+# writes inputs_config.yml and updates config dict
+config.update(
+    snakebids.generate_inputs(
+        bids_dir=config["bids_dir"],
+        pybids_inputs=config["pybids_inputs"],
+        derivatives=config["derivatives"],
+        participant_label=config.get("participant_label"),
+        exclude_participant_label=config.get("exclude_participant_label"),
+    )
+)
+
+
+rule all:
+    input:
+        uni_stripped=expand(
+            bids(
+                root=root,
+                datatype="anat",
+                desc="MPRAGEised",
+                acq="UNI",
+                suffix="T1w.nii.gz",
+                **config["input_wildcards"]["uni"]
+            ),
+            zip,
+            **config["input_zip_lists"]["uni"]
+        ),
+
+
+rule import_nii:
+    """ copy the niftis locally to avoid modifying bids data when gunzipping"""
+    input:
+        uni=config["input_path"]["uni"],
+        inv2=config["input_path"]["inv2"],
+    output:
+        uni=bids(root=root, suffix="UNI.nii.gz", **config["input_wildcards"]["uni"]),
+        inv2=bids(root=root, suffix="INV2.nii.gz", **config["input_wildcards"]["inv2"]),
+    run:
+        for i, o in zip(input, output):
+            shell("cp {i} {o}")
+
+
+rule render_matlab_script:
+    """ this rule creates the matlab script from the template """
+    input:
+        uni=bids(root=root, suffix="UNI.nii.gz", **config["input_wildcards"]["uni"]),
+        inv2=bids(root=root, suffix="INV2.nii.gz", **config["input_wildcards"]["inv2"]),
+        template_script=os.path.join(
+            workflow.basedir, "script_templates", "presurfer_spmdocker.m.template"
+        ),
+    params:
+        out_presurfer=bids(
+            root=root, suffix="presurfer", **config["input_wildcards"]["uni"]
+        ),
+    output:
+        presurfer_script=temp(
+            bids(root=root, suffix="presurfer.m", **config["input_wildcards"]["uni"])
+        ),
+    run:
+        from jinja2 import Environment, FileSystemLoader
+
+        (head, tail) = os.path.split(input.template_script)
+        env = Environment(loader=FileSystemLoader(head))
+        template = env.get_template(tail)
+        with open(output.presurfer_script, "w") as fh:
+            fh.write(
+                template.render(
+                    uni_path=input.uni,
+                    inv2_path=input.inv2,
+                    out_folder=params.out_presurfer,
+                )
+            )
+
+
+def get_outdir_presurfer():
+    return bids(root=root, suffix="presurfer", **config["input_wildcards"]["uni"])
+
+
+rule presurfer:
+    input:
+        uni=bids(root=root, suffix="UNI.nii.gz", **config["input_wildcards"]["uni"]),
+        inv2=bids(root=root, suffix="INV2.nii.gz", **config["input_wildcards"]["inv2"]),
+        presurfer_script=bids(
+            root=root, suffix="presurfer.m", **config["input_wildcards"]["uni"]
+        ),
+    params:
+        out_presurfer=bids(
+            root=root, suffix="presurfer", **config["input_wildcards"]["uni"]
+        ),
+    output:
+        out_presurfer=directory(get_outdir_presurfer()),
+        uni_mprageised=bids(
+            root=get_outdir_presurfer(),
+            include_subject_dir=False,
+            include_session_dir=False,
+            datatype="presurf_MPRAGEise",
+            suffix="UNI_MPRAGEised.nii",
+            **config["input_wildcards"]["uni"]
+        ),
+        inv2_stripmask=bids(
+            root=get_outdir_presurfer(),
+            include_subject_dir=False,
+            include_session_dir=False,
+            datatype="presurf_INV2",
+            suffix="INV2_stripmask.nii",
+            **config["input_wildcards"]["uni"]
+        ),
+        uni_brainmask=bids(
+            root=get_outdir_presurfer(),
+            include_subject_dir=False,
+            include_session_dir=False,
+            datatype="presurf_UNI",
+            suffix="UNI_MPRAGEised_brainmask.nii",
+            **config["input_wildcards"]["uni"]
+        ),
+    container:
+        config["singularity"]["spm"]
+    shell:
+        "/.run script {input.presurfer_script}"
+
+
+rule copy_outputs:
+    input:
+        uni_mprageised=rules.presurfer.output.uni_mprageised,
+        inv2_stripmask=rules.presurfer.output.inv2_stripmask,
+        uni_brainmask=rules.presurfer.output.uni_brainmask,
+    output:
+        uni_mprageised=bids(
+            root=root,
+            datatype="anat",
+            desc="unstripped",
+            suffix="MPRAGEised.nii.gz",
+            **config["input_wildcards"]["uni"]
+        ),
+        inv2_stripmask=bids(
+            root=root,
+            datatype="anat",
+            desc="strip",
+            suffix="mask.nii.gz",
+            **config["input_wildcards"]["uni"]
+        ),
+        uni_brainmask=bids(
+            root=root,
+            datatype="anat",
+            desc="brain",
+            suffix="mask.nii.gz",
+            **config["input_wildcards"]["uni"]
+        ),
+    run:
+        for i, o in zip(input, output):
+            shell("cp {i} {o}")
+
+
+rule apply_strip:
+    """ should manually edit the stripmask if needed """
+    input:
+        uni_mprageised=bids(
+            root=root,
+            datatype="anat",
+            desc="unstripped",
+            suffix="MPRAGEised.nii.gz",
+            **config["input_wildcards"]["uni"]
+        ),
+        inv2_stripmask=bids(
+            root=root,
+            datatype="anat",
+            desc="strip",
+            suffix="mask.nii.gz",
+            **config["input_wildcards"]["uni"]
+        ),
+    output:
+        uni_stripped=bids(
+            root=root,
+            datatype="anat",
+            desc="MPRAGEised",
+            acq="UNI",
+            suffix="T1w.nii.gz",
+            **config["input_wildcards"]["uni"]
+        ),
+    shell:
+        "c3d {input} -multiply {output}"
