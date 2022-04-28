@@ -3,6 +3,7 @@ import os
 
 from snakebids.app import SnakeBidsApp
 
+
 def main():
     app = SnakeBidsApp(
         os.path.abspath(os.path.dirname(__file__)),
