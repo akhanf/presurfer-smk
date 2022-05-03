@@ -39,6 +39,7 @@ rule all:
         ),
 
 
+
 rule import_nii:
     """ copy the niftis locally to avoid modifying bids data when gunzipping"""
     input:
@@ -47,9 +48,14 @@ rule import_nii:
     output:
         uni=bids(root=root, suffix="UNI.nii.gz", **config["input_wildcards"]["uni"]),
         inv2=bids(root=root, suffix="INV2.nii.gz", **config["input_wildcards"]["inv2"]),
+    group: 'subj'
     run:
         for i, o in zip(input, output):
             shell("cp {i} {o}")
+
+
+def get_outdir_presurfer():
+    return bids(root=work, suffix="presurfer", **config["input_wildcards"]["uni"])
 
 
 rule render_matlab_script:
@@ -61,13 +67,10 @@ rule render_matlab_script:
             workflow.basedir, "script_templates", "presurfer_spmdocker.m.template"
         ),
     params:
-        out_presurfer=bids(
-            root=root, suffix="presurfer", **config["input_wildcards"]["uni"]
-        ),
+        out_presurfer=get_outdir_presurfer()
     output:
-        presurfer_script=temp(
-            bids(root=root, suffix="presurfer.m", **config["input_wildcards"]["uni"])
-        ),
+        presurfer_script=bids(root=work, suffix="presurfer.m", **config["input_wildcards"]["uni"])
+    group: 'subj'
     run:
         from jinja2 import Environment, FileSystemLoader
 
@@ -84,20 +87,13 @@ rule render_matlab_script:
             )
 
 
-def get_outdir_presurfer():
-    return bids(root=root, suffix="presurfer", **config["input_wildcards"]["uni"])
-
 
 rule presurfer:
     input:
         uni=bids(root=root, suffix="UNI.nii.gz", **config["input_wildcards"]["uni"]),
         inv2=bids(root=root, suffix="INV2.nii.gz", **config["input_wildcards"]["inv2"]),
         presurfer_script=bids(
-            root=root, suffix="presurfer.m", **config["input_wildcards"]["uni"]
-        ),
-    params:
-        out_presurfer=bids(
-            root=root, suffix="presurfer", **config["input_wildcards"]["uni"]
+            root=work, suffix="presurfer.m", **config["input_wildcards"]["uni"]
         ),
     output:
         out_presurfer=directory(get_outdir_presurfer()),
@@ -125,8 +121,14 @@ rule presurfer:
             suffix="UNI_MPRAGEised_brainmask.nii",
             **config["input_wildcards"]["uni"]
         ),
+    shadow: 'minimal'
     container:
         config["singularity"]["spm"]
+    group: 'subj'
+    threads: 1
+    resources:
+        mem_mb=8000,
+        time=60
     shell:
         "/.run script {input.presurfer_script}"
 
@@ -158,6 +160,7 @@ rule copy_outputs:
             suffix="mask.nii.gz",
             **config["input_wildcards"]["uni"]
         ),
+    group: 'subj'
     run:
         for i, o in zip(input, output):
             shell("cp {i} {o}")
@@ -189,5 +192,6 @@ rule apply_strip:
             suffix="T1w.nii.gz",
             **config["input_wildcards"]["uni"]
         ),
+    group: 'subj'
     shell:
         "c3d {input} -multiply {output}"
